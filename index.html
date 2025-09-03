@@ -1,5 +1,3 @@
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -75,12 +73,6 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
       background-color: #ff6666;
     }
   </style>
-
-  <!-- Firebase SDKs -->
-
-<script src="https://www.gstatic.com/firebasejs/10.3.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.3.1/firebase-firestore.js"></script>
-
 </head>
 <body>
   <h1>🎤 Karaoke Song List</h1>
@@ -88,12 +80,26 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
   <div class="input-group">
     <input type="text" id="songTitle" placeholder="Song Title">
     <input type="text" id="songArtist" placeholder="Artist">
-    <button onclick="addSong()">Add Song</button>
+    <button id="addSongBtn">Add Song</button>
   </div>
 
   <ul id="songList"></ul>
 
-  <script>
+  <script type="module">
+    // Import the functions you need from the SDKs
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-app.js";
+    import { 
+      getFirestore, 
+      collection, 
+      addDoc, 
+      serverTimestamp, 
+      query, 
+      orderBy, 
+      onSnapshot, 
+      doc, 
+      deleteDoc 
+    } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-firestore.js";
+
     let userName = "";
 
     // Prompt for name
@@ -104,9 +110,9 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
       }
     };
 
-    // Firebase config (replace with your actual config)
+    // Firebase configuration (replace with your actual API Key)
     const firebaseConfig = {
-      apiKey: "AIzaSyDe-6m4EdvqJHeWxD0p1D3xPSJkaZmFFxo",
+      apiKey: "YOUR_ACTUAL_API_KEY", // <--- IMPORTANT: Replace with your actual API key
       authDomain: "karaokesonglist-78fa9.firebaseapp.com",
       projectId: "karaokesonglist-78fa9",
       storageBucket: "karaokesonglist-78fa9.appspot.com",
@@ -116,49 +122,50 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
     };
 
     // Initialize Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
     // Add song to Firestore
-    async function addSong() { // Make it async because addDoc returns a Promise
-  const title = document.getElementById("songTitle")?.value.trim(); // Added optional chaining
-  const artist = document.getElementById("songArtist")?.value.trim(); // Added optional chaining
+    async function addSong() {
+      const songTitleInput = document.getElementById("songTitle");
+      const songArtistInput = document.getElementById("songArtist");
 
-  if (!title || !artist) {
-    alert("Please enter both song title and artist.");
-    return;
-  }
+      const title = songTitleInput?.value.trim();
+      const artist = songArtistInput?.value.trim();
 
-  try {
-    // Use the collection() function to get a reference to your 'songs' collection
-    // Then use addDoc() to add a new document to that collection
-    await addDoc(collection(db, "songs"), {
-      title: title,
-      artist: artist,
-      addedBy: userName,
-      timestamp: serverTimestamp() // Use the imported serverTimestamp function
-    });
+      if (!title || !artist) {
+        alert("Please enter both song title and artist.");
+        return;
+      }
 
-    // Clear the input fields
-    const songTitleInput = document.getElementById("songTitle") as HTMLInputElement;
-    const songArtistInput = document.getElementById("songArtist") as HTMLInputElement;
-    if (songTitleInput) songTitleInput.value = "";
-    if (songArtistInput) songArtistInput.value = "";
+      try {
+        await addDoc(collection(db, "songs"), {
+          title: title,
+          artist: artist,
+          addedBy: userName,
+          timestamp: serverTimestamp()
+        });
 
-    console.log("Song added successfully!");
-  } catch (e) {
-    console.error("Error adding document: ", e);
-    alert("Failed to add song. Please try again.");
-  }
-}
+        if (songTitleInput) songTitleInput.value = "";
+        if (songArtistInput) songArtistInput.value = "";
+
+        console.log("Song added successfully!");
+      } catch (e) {
+        console.error("Error adding document: ", e);
+        alert("Failed to add song. Please try again.");
+      }
+    }
 
     // Load songs and listen for real-time updates
-    db.collection("songs").orderBy("timestamp").onSnapshot(snapshot => {
+    const q = query(collection(db, "songs"), orderBy("timestamp", "desc")); // Order by newest first
+    onSnapshot(q, (snapshot) => {
       const songList = document.getElementById("songList");
-      songList.innerHTML = "";
+      if (!songList) return; // Basic null check
 
-      snapshot.forEach(doc => {
-        const song = doc.data();
+      songList.innerHTML = ""; // Clear existing list
+
+      snapshot.forEach((d) => { // Using 'd' for document to avoid conflict with imported 'doc' function
+        const song = d.data();
         const li = document.createElement("li");
 
         const infoDiv = document.createElement("div");
@@ -168,19 +175,30 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
         const removeBtn = document.createElement("button");
         removeBtn.className = "remove-btn";
         removeBtn.textContent = "Remove";
-        removeBtn.onclick = () => db.collection("songs").doc(doc.id).delete();
+        removeBtn.addEventListener("click", async () => {
+          try {
+            await deleteDoc(doc(db, "songs", d.id)); // Correct modular call
+            console.log("Song removed successfully!");
+          } catch (error) {
+            console.error("Error removing document: ", error);
+            alert("Failed to remove song. Please try again.");
+          }
+        });
 
         li.appendChild(infoDiv);
         li.appendChild(removeBtn);
         songList.appendChild(li);
       });
     });
+
+    // Attach event listener to the Add Song button after the DOM is loaded
+    document.addEventListener("DOMContentLoaded", () => {
+      const addSongButton = document.getElementById("addSongBtn");
+      if (addSongButton) {
+        addSongButton.addEventListener("click", addSong);
+      }
+    });
+
   </script>
 </body>
 </html>
-
-
-
-
-
-
