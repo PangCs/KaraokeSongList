@@ -1,3 +1,5 @@
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -118,25 +120,37 @@
     const db = firebase.firestore();
 
     // Add song to Firestore
-    function addSong() {
-      const title = document.getElementById("songTitle").value.trim();
-      const artist = document.getElementById("songArtist").value.trim();
+    async function addSong() { // Make it async because addDoc returns a Promise
+  const title = document.getElementById("songTitle")?.value.trim(); // Added optional chaining
+  const artist = document.getElementById("songArtist")?.value.trim(); // Added optional chaining
 
-      if (!title || !artist) {
-        alert("Please enter both song title and artist.");
-        return;
-      }
+  if (!title || !artist) {
+    alert("Please enter both song title and artist.");
+    return;
+  }
 
-      db.collection("songs").add({
-        title: title,
-        artist: artist,
-        addedBy: userName,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      });
+  try {
+    // Use the collection() function to get a reference to your 'songs' collection
+    // Then use addDoc() to add a new document to that collection
+    await addDoc(collection(db, "songs"), {
+      title: title,
+      artist: artist,
+      addedBy: userName,
+      timestamp: serverTimestamp() // Use the imported serverTimestamp function
+    });
 
-      document.getElementById("songTitle").value = "";
-      document.getElementById("songArtist").value = "";
-    }
+    // Clear the input fields
+    const songTitleInput = document.getElementById("songTitle") as HTMLInputElement;
+    const songArtistInput = document.getElementById("songArtist") as HTMLInputElement;
+    if (songTitleInput) songTitleInput.value = "";
+    if (songArtistInput) songArtistInput.value = "";
+
+    console.log("Song added successfully!");
+  } catch (e) {
+    console.error("Error adding document: ", e);
+    alert("Failed to add song. Please try again.");
+  }
+}
 
     // Load songs and listen for real-time updates
     db.collection("songs").orderBy("timestamp").onSnapshot(snapshot => {
@@ -164,6 +178,7 @@
   </script>
 </body>
 </html>
+
 
 
 
